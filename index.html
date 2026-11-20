@@ -1,0 +1,982 @@
+﻿<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pasaporte al Mundo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800;900&family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,600;0,6..12,700;0,6..12,800;1,6..12,400&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: un libro físico sobre un escritorio oscuro; hojas de papel con pestañas de color por capítulo, tema "pasaporte" con sellos. Un solo look (oscuro) a propósito. */
+:root{
+  --desk:#161c27; --desk2:#232c3c;
+  --paper:#fdfcf9; --paper2:#f3f1ea;
+  --ink:#1b2333; --muted:#5a6377; --line:#dedbd0;
+  --navy:#13284b; --gold:#e3ad1f; --stamp:#bf2e39;
+  --f-display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --f-body:"Nunito Sans","Segoe UI",Arial,sans-serif;
+  --f-mono:"IBM Plex Mono",Consolas,"Courier New",monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0;background:radial-gradient(ellipse at 50% 35%,var(--desk2),var(--desk) 70%);color:#e9ecf2;font-family:var(--f-body);overflow:hidden;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box}
+#app{height:100%;display:flex;flex-direction:column}
+#stage{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding-block:14px 6px}
+#fit{position:relative}
+#scaler{position:absolute;left:0;top:0;transform-origin:0 0}
+.book{position:relative;perspective:2400px;transition:transform .9s cubic-bezier(.645,.045,.355,1)}
+.leaf{position:absolute;top:0;transform-origin:left center;transform-style:preserve-3d;transition:transform .9s cubic-bezier(.645,.045,.355,1);cursor:pointer}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;background:var(--paper);box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.face.back{transform:rotateY(180deg)}
+.face.front::after,.face.back::after{content:"";position:absolute;inset:0;pointer-events:none}
+.double .face.front::after{background:linear-gradient(to right,rgba(20,20,30,.20),rgba(20,20,30,0) 6%)}
+.double .face.back::after{background:linear-gradient(to left,rgba(20,20,30,.20),rgba(20,20,30,0) 6%)}
+.single .face.front::after{background:linear-gradient(to right,rgba(20,20,30,.12),rgba(20,20,30,0) 4%)}
+.single .leaf.flipped{opacity:0;transition:transform .8s cubic-bezier(.645,.045,.355,1),opacity .25s .55s}
+.leaf.moving .face{box-shadow:0 25px 60px rgba(0,0,0,.55)}
+.no-anim,.no-anim .leaf{transition:none!important}
+@media (prefers-reduced-motion:reduce){.book,.leaf{transition-duration:.01s!important}}
+
+/* Controles */
+#bar{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding-block:8px calc(12px + env(safe-area-inset-bottom,0px))}
+#bar button,#bar select{font:600 14px var(--f-body);color:#eef1f6;background:#2b3548;border:1px solid #3d4a62;border-radius:999px;height:38px;padding:0 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+#bar button:hover,#bar select:hover{background:#344158}
+#bar button:focus-visible,#bar select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#bar button:disabled{opacity:.35;cursor:default}
+#bar svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#ind{font:600 13px var(--f-mono);color:#c7cede;min-width:150px;text-align:center}
+#hint{font-size:12.5px;color:#9aa5b9;text-align:center;width:100%}
+#src{display:none}
+
+/* ===== Páginas ===== */
+.pg{width:460px;height:650px;box-sizing:border-box;position:relative;background:var(--paper);color:var(--ink);padding:40px 36px 42px;
+  font:11.5px/1.45 var(--f-body);display:flex;flex-direction:column;gap:8px;overflow:hidden;--c:var(--navy)}
+.pg p{margin:0}
+.pg ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
+.pg li{position:relative;padding-left:13px}
+.pg li::before{content:"";position:absolute;left:1px;top:.55em;width:6px;height:6px;background:var(--c);transform:rotate(45deg)}
+.pg b{font-weight:800}
+.folio{position:absolute;bottom:16px;font:600 10.5px var(--f-mono);color:var(--muted)}
+.R .folio{right:36px}.L .folio{left:36px}
+.run{position:absolute;top:16px;font:600 9px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.R .run{right:36px}.L .run{left:36px}
+.tab{position:absolute;top:calc(64px + var(--n)*62px);width:9px;height:50px;background:var(--c)}
+.R .tab{right:0;border-radius:4px 0 0 4px}.L .tab{left:0;border-radius:0 4px 4px 0}
+
+.kicker{font:600 10px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--c)}
+h2.ttl{font:900 40px/0.9 var(--f-display);text-transform:uppercase;color:var(--c);margin:2px 0 0;letter-spacing:.01em;text-wrap:balance}
+h2.ttl.sm{font-size:34px}
+.illu{border-radius:12px;background:color-mix(in srgb,var(--c) 9%,var(--paper));display:flex;align-items:center;justify-content:center;padding:6px}
+.illu svg{width:100%;height:120px;display:block}
+[hidden]{display:none!important}
+.pg .sec{display:flex;flex-direction:column;gap:4px}
+.guard{background:var(--navy);padding:0}
+.guard .pat{position:absolute;inset:0;background:radial-gradient(circle,rgba(227,173,31,.28) 0 1.6px,transparent 2.4px) 0 0/22px 22px,repeating-linear-gradient(45deg,rgba(227,173,31,.09) 0 1px,transparent 1px 11px),repeating-linear-gradient(-45deg,rgba(227,173,31,.09) 0 1px,transparent 1px 11px)}
+.guard .gmark{position:absolute;left:0;right:0;bottom:34px;text-align:center;font:600 10px var(--f-mono);letter-spacing:.32em;color:rgba(227,173,31,.75)}
+.uni{align-self:center;width:200px;height:200px;border-radius:50%;border:3px solid var(--navy);box-shadow:inset 0 0 0 6px var(--paper),inset 0 0 0 8px var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--navy);transform:rotate(-6deg);text-align:center;padding:26px;box-sizing:border-box;margin-bottom:6px}
+.uni b{font:900 56px/.9 var(--f-display);letter-spacing:.06em}
+.uni span{font:700 8.5px/1.35 var(--f-mono);letter-spacing:.1em;text-transform:uppercase}
+h3.lab{display:flex;align-items:center;gap:7px;margin:4px 0 2px;font:800 16px/1 var(--f-display);text-transform:uppercase;letter-spacing:.05em;color:var(--c);padding-bottom:4px;border-bottom:1.5px dashed color-mix(in srgb,var(--c) 45%,var(--paper))}
+.ic{width:17px;height:17px;flex:none;fill:none;stroke:var(--c);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.box{border:1.5px dashed var(--c);border-radius:10px;padding:9px 11px 9px;position:relative;background:color-mix(in srgb,var(--c) 5%,var(--paper))}
+.box .tag{position:absolute;top:-9px;left:10px;background:var(--c);color:#fff;font:700 9.5px var(--f-mono);letter-spacing:.1em;padding:2px 7px;border-radius:4px;text-transform:uppercase}
+.box.sabias .tag{background:var(--gold);color:var(--ink)}
+.box.sabias{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 9%,var(--paper))}
+.ente{border:2px solid var(--c);border-radius:10px;padding:12px 12px 10px;position:relative;margin-top:6px}
+.ente .tag{position:absolute;top:-10px;right:10px;background:var(--paper);color:var(--c);border:2px solid var(--c);font:700 9.5px var(--f-mono);letter-spacing:.08em;padding:2px 7px;border-radius:5px;transform:rotate(-2deg);text-transform:uppercase}
+.ente ul{gap:4px}
+.small{font-size:10.5px;color:var(--muted)}
+.mono{font-family:var(--f-mono)}
+.grow{flex:1}
+
+/* Portada / contraportada */
+.cover{background:var(--navy);color:#f4efe0;padding:44px 40px;align-items:center;text-align:center;justify-content:space-between}
+.cover .stampline{font:600 10px var(--f-mono);letter-spacing:.22em;color:var(--gold);text-transform:uppercase}
+.cover h1{font:900 76px/.82 var(--f-display);color:var(--gold);margin:0;letter-spacing:.02em;text-transform:uppercase}
+.cover .sub{font:600 15px/1.35 var(--f-body);color:#e9e3d2;max-width:330px}
+.cover .meta{font:600 10.5px/1.6 var(--f-mono);letter-spacing:.08em;color:#c8c0aa;text-transform:uppercase}
+.cover .frame{position:absolute;inset:14px;border:1.5px solid rgba(227,173,31,.55);border-radius:8px;pointer-events:none}
+.cover .frame::after{content:"";position:absolute;inset:5px;border:1px solid rgba(227,173,31,.25);border-radius:5px}
+.chip-row{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;max-width:340px}
+.chip-row span{font:700 9px var(--f-mono);letter-spacing:.06em;padding:3px 7px;border-radius:999px;border:1px solid rgba(227,173,31,.5);color:#efe6cc}
+.backc{justify-content:center;gap:16px}
+.backc p{font-size:12.5px;line-height:1.55;color:#e4ddc9;max-width:330px}
+
+/* Créditos */
+.field{display:flex;flex-direction:column;gap:2px}
+.field label{font:600 9.5px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.fill{display:block;min-height:22px;border-bottom:1.5px solid var(--line);font:700 13px var(--f-body);color:var(--ink);padding:2px 2px;outline:none;cursor:text}
+.fill:empty::before{content:attr(data-ph);color:#a3a8b4;font-weight:400;font-style:italic}
+.fill:focus{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 8%,var(--paper))}
+.dates{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.date{border:2px solid var(--stamp);border-radius:8px;padding:8px 10px;color:var(--stamp);transform:rotate(-1.5deg);text-align:center}
+.date:nth-child(2){transform:rotate(1.5deg);border-color:var(--navy);color:var(--navy)}
+.date b{display:block;font:900 26px/1 var(--f-display)}
+.date span{font:600 9px var(--f-mono);letter-spacing:.1em;text-transform:uppercase}
+
+/* Índice */
+.toc{display:flex;flex-direction:column;gap:0}
+.toc a{display:grid;grid-template-columns:30px 1fr auto;align-items:baseline;gap:6px;padding:6px 2px;border-bottom:1px dotted var(--line);color:var(--ink);text-decoration:none;cursor:pointer;font-size:12.5px}
+.toc a:hover{background:color-mix(in srgb,var(--gold) 12%,var(--paper))}
+.toc a .n{font:800 16px var(--f-display);color:var(--cc,var(--muted))}
+.toc a .p{font:600 11.5px var(--f-mono);color:var(--muted)}
+.toc a.ch b{font-weight:800}
+
+/* Ruta */
+.route{display:flex;flex-direction:column;gap:0;position:relative;margin-top:2px}
+.route::before{content:"";position:absolute;left:13px;top:8px;bottom:8px;border-left:2px dashed var(--line)}
+.step{display:grid;grid-template-columns:28px 1fr;gap:9px;padding:4px 0;position:relative;cursor:pointer}
+.step .dot{width:28px;height:28px;border-radius:50%;background:var(--cc);color:#fff;font:800 15px/28px var(--f-display);text-align:center;z-index:1}
+.step b{display:block;font-size:12px}
+.step span{font-size:10.8px;color:var(--muted)}
+.step:hover b{text-decoration:underline}
+
+/* Subpartida */
+.code{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;text-align:center}
+.code div{border-radius:6px;padding:4px 2px;background:var(--paper);border:1px solid color-mix(in srgb,var(--c) 40%,var(--paper))}
+.code b{display:block;font:600 17px var(--f-mono);color:var(--c)}
+.code span{font-size:8.6px;line-height:1.2;display:block;color:var(--muted)}
+
+/* Franjas toxicológicas */
+.tox{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.tox div{border-radius:6px;padding:5px 4px;color:#fff;font-size:9.5px;line-height:1.25;text-align:center}
+.tox b{display:block;font:800 15px var(--f-display)}
+
+/* Tablas */
+table{width:100%;border-collapse:collapse;font-size:10.3px;line-height:1.3}
+th{font:700 9px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--navy);padding:5px 5px;text-align:left}
+td{padding:5px 5px;border-bottom:1px solid var(--line);vertical-align:top}
+td:first-child{font-weight:800;border-left:4px solid var(--cc)}
+
+/* Glosario */
+dl.glo{margin:0;display:flex;flex-direction:column;gap:5px;font-size:10.7px;line-height:1.38}
+dl.glo dt{font:800 11.5px var(--f-body);color:var(--navy);display:inline}
+dl.glo dd{margin:0}
+dl.glo dd::before{content:" "}
+
+/* Quiz */
+ol.quiz{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:11.5px}
+ol.quiz li::before{display:none}
+ol.quiz li{padding-left:2px}
+.answers{transform:rotate(180deg);font-size:9.8px;color:var(--muted);border-top:1.5px dashed var(--line);padding-top:7px;line-height:1.4}
+
+/* Fuentes */
+ol.refs{margin:0;padding-left:16px;display:flex;flex-direction:column;gap:4px;font-size:9.9px;line-height:1.36}
+ol.refs li{padding-left:2px}ol.refs li::before{display:none}
+ol.refs i{font-style:italic}
+ol.refs a{color:var(--navy);word-break:break-all}
+
+.lines{flex:1;background:repeating-linear-gradient(to bottom,transparent 0 25px,var(--line) 25px 26px);margin-top:4px}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+.legend div{display:flex;gap:7px;align-items:flex-start;font-size:11px}
+.legend .ic{margin-top:1px}
+
+/* SVG ilustraciones */
+.illu .k{fill:var(--c)} .illu .lt{fill:color-mix(in srgb,var(--c) 22%,#fff)} .illu .w{fill:#fff}
+.illu .s{fill:var(--ink)} .illu .g{fill:var(--gold)} .illu .r{fill:var(--stamp)}
+.illu .ol{fill:#fff;stroke:var(--c);stroke-width:2.2} .illu .ln{fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round}
+.illu .lk{fill:none;stroke:var(--c);stroke-width:2.5;stroke-linecap:round}
+.illu .gr{fill:#3f8a2e} .illu .gr2{fill:#7cb342} .illu .t{font:600 9px var(--f-mono);fill:var(--ink)}
+</style>
+
+<!-- Íconos compartidos -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-con" viewBox="0 0 24 24"><path d="M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3z"/><path d="M21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7z"/></symbol>
+  <symbol id="i-tip" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-fun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+  <symbol id="i-cer" viewBox="0 0 24 24"><circle cx="12" cy="10" r="7"/><path d="m9 10 2 2 4-4"/><path d="M8.5 16 7 22l5-2.5 5 2.5-1.5-6"/></symbol>
+  <symbol id="i-ent" viewBox="0 0 24 24"><path d="M3 21h18M4 10h16M12 3 3 8h18z"/><path d="M6 10v8M10 10v8M14 10v8M18 10v8"/></symbol>
+</svg>
+
+<div id="app">
+  <div id="stage"><div id="fit"><div id="scaler"><div class="book double" id="book"></div></div></div></div>
+  <div id="bar">
+    <button id="prev" aria-label="Página anterior"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>Anterior</button>
+    <span id="ind" aria-live="polite">Portada</span>
+    <button id="next" aria-label="Página siguiente">Siguiente<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+    <select id="goto" aria-label="Ir a una sección">
+      <option value="">Ir a…</option>
+      <option value="1">Portada</option><option value="4">Índice</option><option value="5">La ruta de una exportación</option>
+      <option value="6">1 · DIAN</option><option value="8">2 · Aduanas</option><option value="10">3 · Aranceles y partida</option>
+      <option value="12">4 · Normas sanitarias y fitosanitarias</option><option value="14">5 · Productos fitosanitarios</option>
+      <option value="16">6 · Orgánicos e inocuidad</option><option value="18">7 · Trazabilidad</option><option value="20">8 · Estacionalidad</option>
+      <option value="22">Glosario</option><option value="24">Fuentes</option>
+    </select>
+    <button id="snd" aria-pressed="true" aria-label="Sonido de hojas"><svg id="sndOn" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><svg id="sndOff" viewBox="0 0 24 24" hidden><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 6 6M22 9l-6 6"/></svg><span id="sndTxt">Sonido</span></button>
+    <div id="hint">Haz clic sobre la página (o desliza / usa las flechas del teclado) para pasar la hoja.</div>
+  </div>
+</div>
+
+<!-- ======================= PÁGINAS (fuente) ======================= -->
+<div id="src">
+
+<!-- 1 PORTADA -->
+<section class="pg cover">
+  <div class="frame"></div>
+  <div class="stampline">Cartilla de comercio exterior · Colombia</div>
+  <svg viewBox="0 0 240 200" width="250" height="205" aria-hidden="true">
+    <circle cx="120" cy="100" r="78" fill="#1c3a69" stroke="#e3ad1f" stroke-width="2.5"/>
+    <ellipse cx="120" cy="100" rx="34" ry="78" fill="none" stroke="#e3ad1f" stroke-width="1.3" opacity=".7"/>
+    <ellipse cx="120" cy="100" rx="62" ry="78" fill="none" stroke="#e3ad1f" stroke-width="1.1" opacity=".45"/>
+    <line x1="120" y1="22" x2="120" y2="178" stroke="#e3ad1f" stroke-width="1.2" opacity=".7"/>
+    <path d="M45 75h150M42 100h156M45 125h150" stroke="#e3ad1f" stroke-width="1.1" opacity=".5"/>
+    <path d="M86 70c8-6 18-4 22 4s-2 16 4 24-2 22-10 24-12-10-14-20-12-10-8-20 0-8 6-12z" fill="#e3ad1f" opacity=".9"/>
+    <path d="M28 150C70 40 170 30 214 60" fill="none" stroke="#f4efe0" stroke-width="2" stroke-dasharray="5 6"/>
+    <path d="m206 50 14 8-15 5 4-6z" fill="#f4efe0"/>
+    <g transform="translate(150 140)"><rect width="22" height="13" fill="#bf2e39"/><rect x="24" width="22" height="13" fill="#e3ad1f"/><rect x="12" y="-15" width="22" height="13" fill="#2e7d8a"/></g>
+    <circle cx="28" cy="150" r="5" fill="#e3ad1f"/>
+  </svg>
+  <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
+    <h1>Pasaporte<br>al mundo</h1>
+    <div class="sub">8 conceptos clave para entender y practicar los negocios internacionales desde Colombia</div>
+  </div>
+  <div class="chip-row"><span>DIAN</span><span>ADUANAS</span><span>ARANCELES</span><span>MSF</span><span>FITOSANITARIOS</span><span>ORGÁNICOS</span><span>TRAZABILIDAD</span><span>ESTACIONALIDAD</span></div>
+  <div class="meta">Noviembre 2026</div>
+</section>
+
+<!-- 2 GUARDA -->
+<section class="pg guard"><div class="pat"></div><div class="gmark">PASAPORTE AL MUNDO</div></section>
+
+<!-- 3 CRÉDITOS -->
+<section class="pg">
+  <div class="run">Pasaporte al mundo</div>
+  <div class="kicker">Datos del pasaporte</div>
+  <h2 class="ttl sm">Esta cartilla<br>pertenece a</h2>
+  <div class="field"><label>Integrante 1</label><span class="fill">Karen Daniela Zambrano Cuervo</span></div>
+  <div class="field"><label>Integrante 2</label><span class="fill">Jair Estupiñán Estupiñán</span></div>
+  <div class="field"><label>Integrante 3</label><span class="fill">Hary Alejandra Moreno Beltrán</span></div>
+  <div class="field"><label>Integrante 4</label><span class="fill">Cristian David Ruda Larotta</span></div>
+  <div class="field"><label>Docente</label><span class="fill">Carlos Julio Rodríguez Páez</span></div>
+  <div class="field"><label>Programa / institución</label><span class="fill">Universidad Pedagógica y Tecnológica de Colombia</span></div>
+  <div class="field"><label>Asignatura</label><span class="fill">Negocios Internacionales</span></div>
+  <div class="grow"></div>
+  <div class="uni"><span>Universidad Pedagógica y</span><b>UPTC</b><span>Tecnológica de Colombia</span></div>
+  <span class="folio">3</span>
+</section>
+
+<!-- 4 ÍNDICE -->
+<section class="pg">
+  <div class="run">Índice</div>
+  <div class="kicker">Itinerario</div>
+  <h2 class="ttl sm">Índice</h2>
+  <p class="small">Haz clic en un tema para ir directo a su página.</p>
+  <nav class="toc">
+    <a data-go="5"><span class="n">·</span><span>La ruta de una exportación</span><span class="p">5</span></a>
+    <a class="ch" data-go="6" style="--cc:#1f3a6b"><span class="n">01</span><b>DIAN</b><span class="p">6</span></a>
+    <a class="ch" data-go="8" style="--cc:#0b7285"><span class="n">02</span><b>Aduanas</b><span class="p">8</span></a>
+    <a class="ch" data-go="10" style="--cc:#b7791f"><span class="n">03</span><b>Aranceles y partida arancelaria</b><span class="p">10</span></a>
+    <a class="ch" data-go="12" style="--cc:#b83232"><span class="n">04</span><b>Normas sanitarias y fitosanitarias</b><span class="p">12</span></a>
+    <a class="ch" data-go="14" style="--cc:#6a4c93"><span class="n">05</span><b>Productos fitosanitarios</b><span class="p">14</span></a>
+    <a class="ch" data-go="16" style="--cc:#3f8a2e"><span class="n">06</span><b>Productos orgánicos e inocuidad</b><span class="p">16</span></a>
+    <a class="ch" data-go="18" style="--cc:#a8326e"><span class="n">07</span><b>Trazabilidad de un producto</b><span class="p">18</span></a>
+    <a class="ch" data-go="20" style="--cc:#d2691e"><span class="n">08</span><b>Estacionalidad de un producto</b><span class="p">20</span></a>
+    <a data-go="22"><span class="n">·</span><span>Glosario</span><span class="p">22</span></a>
+    <a data-go="24"><span class="n">·</span><span>Fuentes consultadas</span><span class="p">24</span></a>
+  </nav>
+  <span class="folio">4</span>
+</section>
+
+<!-- 5 RUTA -->
+<section class="pg">
+  <div class="run">La ruta de una exportación</div>
+  <div class="kicker">Del campo al puerto</div>
+  <h2 class="ttl sm">La ruta de una exportación</h2>
+  <p>Los ocho conceptos se conectan en el viaje de un producto, de la finca al puerto. Este es el orden en que un exportador los encuentra:</p>
+  <div class="route">
+    <div class="step" data-go="20" style="--cc:#d2691e"><span class="dot">1</span><div><b>Planear la temporada · Estacionalidad (p. 20)</b><span>Elegir cuándo producir y vender según la demanda del mercado destino.</span></div></div>
+    <div class="step" data-go="16" style="--cc:#3f8a2e"><span class="dot">2</span><div><b>Producir limpio y seguro · Orgánicos e inocuidad (p. 16)</b><span>Aplicar Buenas Prácticas Agrícolas y, si se quiere, certificarse como orgánico.</span></div></div>
+    <div class="step" data-go="14" style="--cc:#6a4c93"><span class="dot">3</span><div><b>Proteger el cultivo · Productos fitosanitarios (p. 14)</b><span>Usar solo productos con registro ICA y respetar los límites de residuos.</span></div></div>
+    <div class="step" data-go="18" style="--cc:#a8326e"><span class="dot">4</span><div><b>Registrar cada lote · Trazabilidad (p. 18)</b><span>Saber de qué finca, qué día y con qué insumos salió cada caja.</span></div></div>
+    <div class="step" data-go="12" style="--cc:#b83232"><span class="dot">5</span><div><b>Cumplir requisitos de salud · Normas MSF (p. 12)</b><span>Obtener el certificado fitosanitario del ICA.</span></div></div>
+    <div class="step" data-go="10" style="--cc:#b7791f"><span class="dot">6</span><div><b>Clasificar el producto · Aranceles y partida (p. 10)</b><span>Ubicar la subpartida del producto y el arancel que le corresponde.</span></div></div>
+    <div class="step" data-go="8" style="--cc:#0b7285"><span class="dot">7</span><div><b>Despachar · Aduanas (p. 8)</b><span>Presentar la solicitud de autorización de embarque y la declaración de exportación.</span></div></div>
+    <div class="step" data-go="6" style="--cc:#1f3a6b"><span class="dot">8</span><div><b>Cumplir ante la autoridad · DIAN (p. 6)</b><span>RUT, certificado de origen y obligaciones tributarias del exportador.</span></div></div>
+  </div>
+  <span class="folio">5</span>
+</section>
+
+<!-- ============ CAP 1 DIAN ============ -->
+<section class="pg" style="--c:#1f3a6b">
+  <i class="tab" style="--n:0"></i>
+  <div class="run">Capítulo 01</div>
+  <div class="kicker">Capítulo 01 · Autoridad</div>
+  <h2 class="ttl">DIAN</h2>
+  <div class="illu"><svg viewBox="0 0 240 140" aria-label="Edificio de gobierno con la bandera de Colombia">
+    <rect x="40" y="122" width="160" height="6" class="lt"/>
+    <polygon points="58,50 120,20 182,50" class="k"/>
+    <text x="120" y="45" text-anchor="middle" style="font:800 13px var(--f-display);fill:#fff;letter-spacing:.1em">DIAN</text>
+    <rect x="56" y="50" width="128" height="8" class="s"/>
+    <rect x="64" y="60" width="13" height="50" class="ol"/><rect x="87" y="60" width="13" height="50" class="ol"/><rect x="110" y="60" width="13" height="50" class="ol"/><rect x="133" y="60" width="13" height="50" class="ol"/><rect x="156" y="60" width="13" height="50" class="ol"/>
+    <rect x="52" y="110" width="136" height="7" class="k"/><rect x="46" y="117" width="148" height="6" class="s"/>
+    <line x1="204" y1="22" x2="204" y2="122" class="ln"/>
+    <rect x="206" y="24" width="28" height="8" fill="#f2c12e"/><rect x="206" y="32" width="28" height="4" fill="#1f4fa3"/><rect x="206" y="36" width="28" height="4" fill="#c8102e"/>
+    <rect x="10" y="62" width="30" height="40" rx="2" class="ol"/><text x="25" y="76" text-anchor="middle" class="t">RUT</text><path d="M16 84h18M16 90h18M16 96h12" class="lk" style="stroke-width:1.5"/>
+    <ellipse cx="25" cy="118" rx="13" ry="4" class="g"/><ellipse cx="25" cy="113" rx="13" ry="4" class="g" stroke="#b8860b"/><ellipse cx="25" cy="108" rx="13" ry="4" class="g" stroke="#b8860b"/>
+  </svg></div>
+  <h3 class="lab"><svg class="ic"><use href="#i-con"/></svg>Concepto</h3>
+  <p>La <b>Dirección de Impuestos y Aduanas Nacionales (DIAN)</b> es la entidad del Estado colombiano que administra los impuestos nacionales, ejerce el control aduanero y vigila las operaciones cambiarias que son de su competencia. Es una Unidad Administrativa Especial adscrita al <b>Ministerio de Hacienda y Crédito Público</b>.</p>
+  <p>Nació con el <b>Decreto 2117 de 1992</b>, que fusionó la Dirección de Impuestos Nacionales (DIN) y la Dirección de Aduanas Nacionales (DAN). Su estructura actual está en el <b>Decreto 1742 de 2020</b>.</p>
+  <div class="box sabias" style="margin-top:8px"><span class="tag">¿Sabías que?</span>Desde el 1 de enero de 2012 la DIAN es la entidad que expide los certificados de origen de las exportaciones colombianas (Decreto 4176 de 2011). Antes lo hacía el Ministerio de Comercio.</div>
+  <span class="folio">6</span>
+</section>
+<section class="pg" style="--c:#1f3a6b">
+  <i class="tab" style="--n:0"></i>
+  <div class="run">DIAN</div>
+  <h3 class="lab"><svg class="ic"><use href="#i-tip"/></svg>Tipos (áreas que administra)</h3>
+  <ul>
+    <li><b>Tributos internos:</b> impuesto de renta, IVA, retención en la fuente, entre otros.</li>
+    <li><b>Tributos aduaneros:</b> el gravamen arancelario y el IVA que se pagan al importar.</li>
+    <li><b>Control cambiario:</b> vigilancia de las divisas en las operaciones de comercio exterior que le competen.</li>
+    <li><b>Direcciones seccionales:</b> de Impuestos, de Aduanas y de Impuestos y Aduanas, en distintas ciudades del país.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-fun"/></svg>Funciones</h3>
+  <ul>
+    <li>Recaudar los impuestos que financian el presupuesto nacional.</li>
+    <li>Controlar la entrada y salida de mercancías por puertos, aeropuertos y pasos de frontera.</li>
+    <li>Combatir la evasión, el contrabando y la defraudación, con apoyo de la Policía Fiscal y Aduanera (POLFA).</li>
+    <li>Interpretar las normas tributarias y aduaneras (conceptos y oficios).</li>
+    <li>Aprobar y vigilar a los usuarios aduaneros, como las agencias de aduanas y los Operadores Económicos Autorizados.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-cer"/></svg>Qué certifica</h3>
+  <ul>
+    <li><b>RUT (Registro Único Tributario):</b> identifica y clasifica a cada contribuyente y usuario aduanero.</li>
+    <li><b>Certificado de origen:</b> prueba que un producto es colombiano para usar las preferencias de un acuerdo comercial.</li>
+    <li><b>Operador Económico Autorizado (OEA):</b> reconoce a empresas seguras y confiables en la cadena logística (Decreto 3568 de 2011). Es voluntario.</li>
+  </ul>
+  <div class="ente"><span class="tag">Ente certificador · Colombia</span>
+    <ul><li>La <b>propia DIAN</b> es la autoridad tributaria, aduanera y cambiaria. Depende del Ministerio de Hacienda y Crédito Público.</li>
+    <li>Sitio oficial: <span class="mono">www.dian.gov.co</span></li></ul>
+  </div>
+  <span class="folio">7</span>
+</section>
+
+<!-- ============ CAP 2 ADUANAS ============ -->
+<section class="pg" style="--c:#0b7285">
+  <i class="tab" style="--n:1"></i>
+  <div class="run">Capítulo 02</div>
+  <div class="kicker">Capítulo 02 · Fronteras</div>
+  <h2 class="ttl">Aduanas</h2>
+  <div class="illu"><svg viewBox="0 0 240 140" aria-label="Buque portacontenedores y grúa">
+    <rect x="0" y="108" width="240" height="32" class="lt"/>
+    <path d="M0 114q10-5 20 0t20 0 20 0 20 0 20 0 20 0 20 0 20 0 20 0 20 0 20 0 20 0" fill="none" stroke="#fff" stroke-width="2"/>
+    <polygon points="24,96 196,96 182,118 38,118" class="s"/>
+    <g stroke="#fff" stroke-width="1.5">
+      <rect x="44" y="76" width="22" height="20" class="k"/><rect x="66" y="76" width="22" height="20" class="g"/><rect x="88" y="76" width="22" height="20" class="r"/><rect x="110" y="76" width="22" height="20" class="k"/><rect x="132" y="76" width="22" height="20" class="g"/>
+      <rect x="55" y="56" width="22" height="20" class="r"/><rect x="77" y="56" width="22" height="20" class="k"/><rect x="99" y="56" width="22" height="20" class="g"/><rect x="121" y="56" width="22" height="20" class="r"/>
+    </g>
+    <rect x="160" y="58" width="22" height="38" class="w" stroke="var(--ink)" stroke-width="2"/><rect x="165" y="64" width="12" height="7" class="k"/>
+    <path d="M224 18v92M140 20h96M212 20l12-12 12 12" class="ln"/><line x1="152" y1="20" x2="152" y2="36" class="ln"/>
+    <rect x="141" y="36" width="22" height="13" class="g" stroke="#fff" stroke-width="1.5"/>
+  </svg></div>
+  <h3 class="lab"><svg class="ic"><use href="#i-con"/></svg>Concepto</h3>
+  <p>La <b>aduana</b> es el servicio público que controla la entrada y salida de mercancías, medios de transporte y unidades de carga de un país. Aplica la legislación aduanera, cobra los tributos del comercio exterior y protege a la sociedad frente al contrabando y los productos peligrosos.</p>
+  <p>En Colombia la función aduanera la cumple la <b>DIAN</b>, y las reglas están en el <b>Decreto 1165 de 2019</b> (régimen de aduanas), que desarrolla la <b>Ley 1609 de 2013</b>.</p>
+  <div class="box sabias" style="margin-top:8px"><span class="tag">¿Sabías que?</span>El <b>levante</b> es la autorización que da la aduana para que el importador pueda disponer de su mercancía. Sin levante, la carga no puede salir del puerto.</div>
+  <span class="folio">8</span>
+</section>
+<section class="pg" style="--c:#0b7285">
+  <i class="tab" style="--n:1"></i>
+  <div class="run">Aduanas</div>
+  <h3 class="lab"><svg class="ic"><use href="#i-tip"/></svg>Tipos</h3>
+  <ul>
+    <li><b>Según el medio de transporte:</b> aduanas marítimas (Cartagena, Buenaventura, Santa Marta, Barranquilla), aéreas (aeropuerto El Dorado, Bogotá) y terrestres en pasos de frontera (Cúcuta, Ipiales).</li>
+    <li><b>Según el régimen aduanero:</b> importación, exportación y tránsito aduanero.</li>
+    <li><b>Modalidades:</b> por ejemplo, importación ordinaria o temporal, y exportación definitiva o temporal.</li>
+    <li><b>Zonas francas y depósitos:</b> áreas con un tratamiento aduanero especial.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-fun"/></svg>Funciones</h3>
+  <ul>
+    <li>Revisar mercancías, documentos y medios de transporte (inspección física, documental o no intrusiva).</li>
+    <li>Liquidar y recaudar el arancel y el IVA de importación.</li>
+    <li>Facilitar el comercio legal con trámites en línea y la VUCE (Ventanilla Única de Comercio Exterior).</li>
+    <li>Frenar el contrabando, las drogas y los productos falsificados.</li>
+    <li>Registrar las estadísticas oficiales de comercio exterior.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-cer"/></svg>Qué certifica</h3>
+  <ul>
+    <li><b>Declaración de importación con levante:</b> prueba que la mercancía entró legalmente al país.</li>
+    <li><b>Autorización de embarque y Declaración de Exportación (DEX):</b> prueban que el producto salió legalmente de Colombia.</li>
+  </ul>
+  <div class="ente"><span class="tag">Ente certificador · Colombia</span>
+    <ul><li><b>DIAN – Dirección de Gestión de Aduanas:</b> autoridad aduanera.</li>
+    <li><b>POLFA (Policía Fiscal y Aduanera):</b> apoya el control.</li>
+    <li><b>Agencias de aduanas:</b> empresas autorizadas por la DIAN para hacer los trámites a nombre de importadores y exportadores.</li></ul>
+  </div>
+  <span class="folio">9</span>
+</section>
+
+<!-- ============ CAP 3 ARANCELES ============ -->
+<section class="pg" style="--c:#b7791f">
+  <i class="tab" style="--n:2"></i>
+  <div class="run">Capítulo 03</div>
+  <div class="kicker">Capítulo 03 · Clasificación</div>
+  <h2 class="ttl sm">Aranceles y partida arancelaria</h2>
+  <div class="illu"><svg viewBox="0 0 240 140" aria-label="Etiqueta de precio con porcentaje y código de barras">
+    <path d="M42 26h128l34 44-34 44H42a8 8 0 0 1-8-8V34a8 8 0 0 1 8-8z" class="lt" stroke="var(--c)" stroke-width="2.5"/>
+    <circle cx="180" cy="70" r="7" class="w" stroke="var(--c)" stroke-width="2"/>
+    <path d="M187 70c14 0 22 10 36 4" class="ln"/>
+    <text x="76" y="88" text-anchor="middle" style="font:900 52px var(--f-display);fill:var(--c)">%</text>
+    <g class="s"><rect x="108" y="40" width="2" height="36"/><rect x="112" y="40" width="4" height="36"/><rect x="118" y="40" width="2" height="36"/><rect x="122" y="40" width="3" height="36"/><rect x="127" y="40" width="2" height="36"/><rect x="131" y="40" width="5" height="36"/><rect x="138" y="40" width="2" height="36"/><rect x="142" y="40" width="3" height="36"/><rect x="147" y="40" width="2" height="36"/><rect x="151" y="40" width="4" height="36"/></g>
+    <text x="131" y="92" text-anchor="middle" class="t">0804.40.00.00</text>
+    <ellipse cx="214" cy="116" rx="13" ry="17" fill="#3f6b26"/><ellipse cx="214" cy="118" rx="8" ry="11" fill="#d9e59a"/><circle cx="214" cy="121" r="5" fill="#7a4a24"/>
+  </svg></div>
+  <h3 class="lab"><svg class="ic"><use href="#i-con"/></svg>Concepto</h3>
+  <p><b>Arancel:</b> impuesto que paga una mercancía al importarse (y, en pocos casos, al exportarse). En Colombia se llama <b>gravamen arancelario</b> y casi siempre es un porcentaje del valor de la mercancía.</p>
+  <p><b>Partida arancelaria:</b> código numérico que identifica cada producto según el <b>Sistema Armonizado (SA)</b> de la Organización Mundial de Aduanas, usado por más de 200 países. Con ese código se sabe qué arancel paga y qué requisitos cumple.</p>
+  <span class="folio">10</span>
+</section>
+<section class="pg" style="--c:#b7791f">
+  <i class="tab" style="--n:2"></i>
+  <div class="run">Aranceles y partida arancelaria</div>
+  <h3 class="lab"><svg class="ic"><use href="#i-tip"/></svg>Tipos de aranceles</h3>
+  <ul>
+    <li><b>Ad valorem:</b> porcentaje sobre el valor de la mercancía (ej.: 10 %).</li>
+    <li><b>Específico:</b> valor fijo por unidad (ej.: dólares por kilo).</li>
+    <li><b>Mixto:</b> combina un porcentaje y un valor fijo.</li>
+    <li><b>Preferencial:</b> arancel reducido o de 0 % gracias a un acuerdo comercial, si se prueba el origen.</li>
+    <li><b>Derechos antidumping y compensatorios:</b> corrigen precios desleales o subsidios.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-fun"/></svg>Funciones</h3>
+  <ul>
+    <li>Proteger la producción nacional frente a importaciones.</li>
+    <li>Generar ingresos para el Estado.</li>
+    <li>Servir como herramienta de política comercial y de negociación entre países.</li>
+    <li>La partida da un “idioma común”: clasifica, produce estadísticas y dice qué permisos se necesitan.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-cer"/></svg>Qué certifica</h3>
+  <p>La subpartida identifica oficialmente <b>qué es el producto</b>. Si hay dudas, la DIAN puede expedir una <b>resolución de clasificación arancelaria</b>. Para pagar un arancel preferencial se presenta la <b>prueba de origen</b> que exige cada acuerdo.</p>
+  <div class="ente"><span class="tag">Ente certificador · Colombia</span>
+    <ul><li><b>Gobierno nacional (por decreto)</b>, con recomendación del Comité de Asuntos Aduaneros, Arancelarios y de Comercio Exterior (Comité Triple A) y el Ministerio de Comercio, fija los aranceles.</li>
+    <li><b>Arancel de Aduanas vigente:</b> Decreto 1881 de 2021 (rige desde el 1 de enero de 2022, con modificaciones posteriores).</li>
+    <li><b>DIAN:</b> aplica el arancel y resuelve la clasificación.</li></ul>
+  </div>
+  <span class="folio">11</span>
+</section>
+
+<!-- ============ CAP 4 MSF ============ -->
+<section class="pg" style="--c:#b83232">
+  <i class="tab" style="--n:3"></i>
+  <div class="run">Capítulo 04</div>
+  <div class="kicker">Capítulo 04 · Salud</div>
+  <h2 class="ttl sm">Normas sanitarias y fitosanitarias</h2>
+  <div class="illu"><svg viewBox="0 0 240 140" aria-label="Escudo con cruz sanitaria y hoja">
+    <path d="M120 12l50 16v38c0 32-22 52-50 62-28-10-50-30-50-62V28z" class="lt" stroke="var(--c)" stroke-width="3"/>
+    <rect x="96" y="38" width="9" height="28" class="r"/><rect x="86" y="47.5" width="29" height="9" class="r"/>
+    <path d="M108 104c-2-30 22-44 42-46-2 26-18 44-42 46z" class="gr"/><path d="M112 100c8-12 18-22 32-36" stroke="#fff" stroke-width="1.6" fill="none"/>
+    <circle cx="36" cy="70" r="22" class="w" stroke="var(--stamp)" stroke-width="3"/><ellipse cx="36" cy="72" rx="7" ry="10" class="s"/><circle cx="36" cy="59" r="4" class="s"/><path d="M28 66l-7-4M44 66l7-4M28 76l-7 3M44 76l7 3" class="ln" style="stroke-width:1.6"/><line x1="20" y1="54" x2="52" y2="86" stroke="var(--stamp)" stroke-width="3"/>
+    <g class="s"><ellipse cx="204" cy="82" rx="9" ry="8"/><circle cx="193" cy="68" r="4"/><circle cx="202" cy="63" r="4"/><circle cx="212" cy="64" r="4"/><circle cx="219" cy="72" r="4"/></g>
+  </svg></div>
+  <h3 class="lab"><svg class="ic"><use href="#i-con"/></svg>Concepto</h3>
+  <p>Las <b>medidas sanitarias y fitosanitarias (MSF)</b> son leyes, reglamentos y procedimientos que aplica un país para proteger la vida y la salud de las <b>personas</b>, los <b>animales</b> y las <b>plantas</b> frente a plagas, enfermedades, contaminantes y toxinas.</p>
+  <p><b>Sanitaria:</b> salud humana y animal. <b>Fitosanitaria:</b> salud de las plantas (“fito” = planta). Se rigen por el <b>Acuerdo MSF de la OMC</b> (1995), que exige que tengan base científica y no se usen como barrera comercial disfrazada.</p>
+  <div class="box sabias" style="margin-top:8px"><span class="tag">¿Sabías que?</span>El Acuerdo MSF reconoce tres organismos de referencia: el <b>Codex Alimentarius</b> (alimentos), la <b>OMSA</b> (salud animal) y la <b>CIPF</b> (protección de plantas).</div>
+  <span class="folio">12</span>
+</section>
+<section class="pg" style="--c:#b83232">
+  <i class="tab" style="--n:3"></i>
+  <div class="run">Normas sanitarias y fitosanitarias</div>
+  <h3 class="lab"><svg class="ic"><use href="#i-tip"/></svg>Tipos</h3>
+  <ul>
+    <li><b>Sanitarias (salud humana):</b> inocuidad de alimentos, límites máximos de residuos (LMR), aditivos.</li>
+    <li><b>Zoosanitarias (salud animal):</b> vacunación, cuarentenas, zonas libres de enfermedades.</li>
+    <li><b>Fitosanitarias (salud vegetal):</b> control de plagas como la mosca de la fruta, tratamientos y fumigaciones.</li>
+    <li><b>De procedimiento:</b> inspecciones, muestreos, registros y certificados.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-fun"/></svg>Funciones</h3>
+  <ul>
+    <li>Evitar la entrada y propagación de plagas y enfermedades.</li>
+    <li>Garantizar que los alimentos sean seguros.</li>
+    <li>Dar <b>acceso a mercados</b> (admisibilidad): sin cumplir las MSF del destino, el producto no entra.</li>
+    <li>Generar confianza entre los socios comerciales.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-cer"/></svg>Qué certifica</h3>
+  <ul>
+    <li><b>Certificado fitosanitario de exportación (ICA):</b> el envío vegetal cumple los requisitos de plagas del país destino.</li>
+    <li><b>Certificado zoosanitario (ICA):</b> sanidad de animales y productos de origen animal.</li>
+    <li><b>Registro, permiso o notificación sanitaria (INVIMA):</b> el alimento es apto para el consumo humano.</li>
+  </ul>
+  <div class="ente"><span class="tag">Ente certificador · Colombia</span>
+    <ul><li><b>ICA – Instituto Colombiano Agropecuario</b> (Ministerio de Agricultura): sanidad animal y vegetal.</li>
+    <li><b>INVIMA</b> (Ministerio de Salud): alimentos y bebidas.</li>
+    <li><b>Comisión Intersectorial MSF</b> (Decreto 2833 de 2006): coordina la política del CONPES 3375 de 2005.</li></ul>
+  </div>
+  <span class="folio">13</span>
+</section>
+
+<!-- ============ CAP 5 FITOSANITARIOS ============ -->
+<section class="pg" style="--c:#6a4c93">
+  <i class="tab" style="--n:4"></i>
+  <div class="run">Capítulo 05</div>
+  <div class="kicker">Capítulo 05 · Protección de cultivos</div>
+  <h2 class="ttl sm">Productos fitosanitarios</h2>
+  <div class="illu"><svg viewBox="0 0 240 140" aria-label="Atomizador y planta">
+    <rect x="48" y="56" width="40" height="70" rx="6" class="k"/><rect x="54" y="70" width="28" height="30" rx="2" class="w"/>
+    <path d="M58 78h20M58 85h20M58 92h14" class="lk" style="stroke-width:1.6"/>
+    <rect x="48" y="112" width="40" height="9" fill="#2e9d4a"/>
+    <rect x="58" y="42" width="20" height="15" class="s"/><path d="M54 32h40v12H54z" class="s"/><rect x="94" y="34" width="10" height="6" class="s"/>
+    <g class="lt"><circle cx="114" cy="37" r="3"/><circle cx="122" cy="31" r="2.5"/><circle cx="124" cy="42" r="2.5"/><circle cx="132" cy="36" r="2"/><circle cx="134" cy="27" r="1.8"/><circle cx="140" cy="44" r="1.8"/></g>
+    <path d="M180 128V60" stroke="#3f6b26" stroke-width="4"/>
+    <ellipse cx="164" cy="72" rx="17" ry="8" transform="rotate(-25 164 72)" class="gr"/><ellipse cx="197" cy="64" rx="17" ry="8" transform="rotate(25 197 64)" class="gr2"/>
+    <ellipse cx="162" cy="98" rx="16" ry="7" transform="rotate(-20 162 98)" class="gr2"/><ellipse cx="198" cy="92" rx="16" ry="7" transform="rotate(20 198 92)" class="gr"/>
+    <rect x="160" y="124" width="40" height="10" rx="3" fill="#7a4a24"/>
+  </svg></div>
+  <h3 class="lab"><svg class="ic"><use href="#i-con"/></svg>Concepto</h3>
+  <p>Son sustancias o mezclas, químicas o biológicas, que se usan para <b>prevenir, controlar o eliminar plagas, enfermedades y malezas</b> en los cultivos, o para regular su crecimiento. También se conocen como plaguicidas o agroquímicos. En Colombia la norma los llama <b>PQUA</b>: plaguicidas químicos de uso agrícola.</p>
+  <div class="box" style="margin-top:12px"><span class="tag">Franja de color en la etiqueta</span>
+    <div class="tox" style="margin-top:4px">
+      <div style="background:#c8102e"><b>I</b>Extremadamente tóxico</div><div style="background:#e0a800;color:#1b2333"><b>II</b>Altamente tóxico</div><div style="background:#1f5fb0"><b>III</b>Medianamente tóxico</div><div style="background:#2e9d4a"><b>IV</b>Ligeramente tóxico</div>
+    </div>
+    <p class="small" style="margin-top:5px">Categorías toxicológicas del Decreto 1843 de 1991.</p>
+  </div>
+  <div class="box sabias" style="margin-top:12px"><span class="tag">¿Sabías que?</span>Si un alimento llega a Europa con residuos por encima del LMR permitido, el lote puede ser rechazado.</div>
+  <span class="folio">14</span>
+</section>
+<section class="pg" style="--c:#6a4c93">
+  <i class="tab" style="--n:4"></i>
+  <div class="run">Productos fitosanitarios</div>
+  <h3 class="lab"><svg class="ic"><use href="#i-tip"/></svg>Tipos</h3>
+  <ul>
+    <li><b>Según lo que controlan:</b> insecticidas (insectos), fungicidas (hongos), herbicidas (malezas), acaricidas (ácaros), nematicidas (nematodos), rodenticidas (roedores) y bactericidas.</li>
+    <li><b>Según su origen:</b> químicos de síntesis y bioinsumos (hongos, bacterias o extractos de plantas).</li>
+    <li><b>Reguladores fisiológicos:</b> controlan floración, maduración o tamaño.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-fun"/></svg>Funciones</h3>
+  <ul>
+    <li>Proteger la productividad y la calidad de los cultivos.</li>
+    <li>Reducir pérdidas antes y después de la cosecha.</li>
+    <li>Ayudar a cumplir los requisitos fitosanitarios para exportar.</li>
+    <li>Su uso exige respetar la dosis, el <b>periodo de carencia</b> (días entre la aplicación y la cosecha) y los <b>LMR</b> del país destino.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-cer"/></svg>Qué certifica</h3>
+  <p>El <b>registro nacional del ICA</b> certifica que el producto fue evaluado en eficacia, toxicidad y riesgo ambiental y que puede venderse y usarse legalmente. La <b>etiqueta aprobada</b> indica cultivos autorizados, dosis, categoría toxicológica y periodo de carencia.</p>
+  <div class="ente"><span class="tag">Ente certificador · Colombia</span>
+    <ul><li><b>ICA:</b> autoridad nacional competente para el registro y control (Decisión Andina 804 de 2015 y Resolución ICA 1580 de 2022).</li>
+    <li><b>INS – Instituto Nacional de Salud:</b> emite el Dictamen Técnico Toxicológico.</li>
+    <li><b>ANLA:</b> emite el Dictamen Técnico Ambiental.</li></ul>
+  </div>
+  <span class="folio">15</span>
+</section>
+
+<!-- ============ CAP 6 ORGÁNICOS E INOCUIDAD ============ -->
+<section class="pg" style="--c:#3f8a2e">
+  <i class="tab" style="--n:5"></i>
+  <div class="run">Capítulo 06</div>
+  <div class="kicker">Capítulo 06 · Calidad y seguridad</div>
+  <h2 class="ttl sm">Productos orgánicos e inocuidad</h2>
+  <div class="illu"><svg viewBox="0 0 240 140" aria-label="Sello ecológico, manzana y escudo de verificación">
+    <circle cx="120" cy="68" r="52" class="lt" stroke="var(--c)" stroke-width="2.5" stroke-dasharray="6 5"/>
+    <circle cx="120" cy="68" r="40" class="w" stroke="var(--c)" stroke-width="2.5"/>
+    <path d="M100 82c0-28 22-40 42-42-2 24-18 40-42 42z" class="gr"/><path d="M104 78c10-12 20-22 32-32" stroke="#fff" stroke-width="1.6" fill="none"/>
+    <text x="120" y="100" text-anchor="middle" style="font:800 9px var(--f-mono);fill:var(--c);letter-spacing:.12em">ECOLÓGICO</text>
+    <circle cx="36" cy="94" r="22" fill="#c8352e"/><path d="M36 72c0-8 4-12 10-14" stroke="#5a3a1a" stroke-width="3" fill="none"/><ellipse cx="46" cy="64" rx="9" ry="4" transform="rotate(-30 46 64)" class="gr2"/>
+    <path d="M204 52l22 8v18c0 16-10 26-22 30-12-4-22-14-22-30V60z" class="k"/><path d="m194 80 7 7 13-14" stroke="#fff" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg></div>
+  <h3 class="lab"><svg class="ic"><use href="#i-con"/></svg>Concepto</h3>
+  <p><b>Producto orgánico (ecológico o biológico):</b> producto agropecuario obtenido sin fertilizantes ni plaguicidas de síntesis química, sin organismos genéticamente modificados y con prácticas que cuidan el suelo, el agua y la biodiversidad. En Colombia lo reglamenta la <b>Resolución 187 de 2006</b> del Ministerio de Agricultura.</p>
+  <p><b>Inocuidad:</b> garantía de que un alimento no causará daño al consumidor cuando se prepare o consuma según su uso previsto (Codex Alimentarius).</p>
+  <div class="box sabias" style="margin-top:8px"><span class="tag">¿Sabías que?</span>Orgánico no es lo mismo que inocuo: un producto orgánico también puede contaminarse con bacterias, por eso debe cumplir las normas de inocuidad.</div>
+  <span class="folio">16</span>
+</section>
+<section class="pg" style="--c:#3f8a2e">
+  <i class="tab" style="--n:5"></i>
+  <div class="run">Productos orgánicos e inocuidad</div>
+  <h3 class="lab"><svg class="ic"><use href="#i-tip"/></svg>Tipos</h3>
+  <ul>
+    <li><b>Orgánicos:</b> frescos (frutas, hortalizas, café), pecuarios (leche, huevos, carne), procesados (panela, cacao) e insumos ecológicos.</li>
+    <li><b>Peligros para la inocuidad:</b> biológicos (bacterias como <i>Salmonella</i>), químicos (residuos de plaguicidas, metales pesados) y físicos (vidrio, metal, piedras).</li>
+    <li><b>Sistemas de inocuidad:</b> BPA (finca), BPM (planta), HACCP, ISO 22000 y GLOBALG.A.P.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-fun"/></svg>Funciones</h3>
+  <ul>
+    <li>Proteger la salud del consumidor y el ambiente.</li>
+    <li>Abrir nichos de mercado que pagan mejor precio por lo orgánico.</li>
+    <li>Prevenir rechazos y alertas sanitarias en el país destino.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-cer"/></svg>Qué certifica</h3>
+  <ul>
+    <li><b>Certificado orgánico:</b> todo el proceso cumple la norma ecológica y permite usar el <b>sello Alimento Ecológico</b> del Ministerio de Agricultura.</li>
+    <li><b>Certificados de inocuidad:</b> BPA en la finca, BPM y HACCP en la planta. Prueban que el alimento se produce con controles que evitan peligros.</li>
+  </ul>
+  <div class="ente"><span class="tag">Ente certificador · Colombia</span>
+    <ul><li><b>Ministerio de Agricultura (MADR):</b> dueño del sello Alimento Ecológico.</li>
+    <li><b>ONAC:</b> acredita a los organismos certificadores, que deben estar registrados ante el MADR.</li>
+    <li><b>ICA:</b> certifica BPA en predios (Resolución 30021 de 2017).</li>
+    <li><b>INVIMA:</b> vigila BPM (Resolución 2674 de 2013) y HACCP (Decreto 60 de 2002).</li></ul>
+  </div>
+  <span class="folio">17</span>
+</section>
+
+<!-- ============ CAP 7 TRAZABILIDAD ============ -->
+<section class="pg" style="--c:#a8326e">
+  <i class="tab" style="--n:6"></i>
+  <div class="run">Capítulo 07</div>
+  <div class="kicker">Capítulo 07 · Seguimiento</div>
+  <h2 class="ttl sm">Trazabilidad de un producto</h2>
+  <div class="illu"><svg viewBox="0 0 240 140" aria-label="Cadena desde la finca hasta el destino con código QR">
+    <path d="M28 104C60 104 60 74 88 74S120 98 150 98 186 62 212 62" fill="none" stroke="var(--c)" stroke-width="2.5" stroke-dasharray="5 5"/>
+    <circle cx="28" cy="104" r="17" class="ol"/><path d="M19 108v-8l9-7 9 7v8z" class="k"/><rect x="25" y="102" width="6" height="6" class="w"/>
+    <circle cx="88" cy="74" r="17" class="ol"/><rect x="79" y="66" width="18" height="15" class="g" stroke="var(--ink)" stroke-width="1.5"/><path d="M79 71h18" stroke="var(--ink)" stroke-width="1.5"/>
+    <circle cx="150" cy="98" r="17" class="ol"/><rect x="139" y="91" width="15" height="10" class="k"/><rect x="154" y="94" width="8" height="7" class="s"/><circle cx="144" cy="103" r="2.5" class="s"/><circle cx="158" cy="103" r="2.5" class="s"/>
+    <circle cx="212" cy="62" r="17" class="ol"/><path d="M201 62h22l-4 7h-14z" class="s"/><rect x="206" y="55" width="7" height="7" class="r"/>
+    <text x="28" y="132" text-anchor="middle" class="t">Finca</text><text x="88" y="102" text-anchor="middle" class="t">Empaque</text><text x="150" y="126" text-anchor="middle" class="t">Transporte</text><text x="212" y="90" text-anchor="middle" class="t">Destino</text>
+    <g transform="translate(14 10)"><rect width="38" height="38" class="w" stroke="var(--ink)" stroke-width="1.5"/>
+      <g class="s"><rect x="4" y="4" width="10" height="10"/><rect x="24" y="4" width="10" height="10"/><rect x="4" y="24" width="10" height="10"/><rect x="18" y="18" width="4" height="4"/><rect x="26" y="22" width="4" height="4"/><rect x="22" y="28" width="4" height="6"/><rect x="30" y="30" width="4" height="4"/><rect x="18" y="6" width="3" height="5"/></g></g>
+  </svg></div>
+  <h3 class="lab"><svg class="ic"><use href="#i-con"/></svg>Concepto</h3>
+  <p>La <b>trazabilidad</b> es la capacidad de seguir el historial, la aplicación o la ubicación de un producto (norma ISO 9000). En alimentos es poder encontrar y seguir el rastro de un producto a través de todas las etapas de <b>producción, transformación y distribución</b>: “de la finca a la mesa”.</p>
+  <div class="box sabias" style="margin-top:8px"><span class="tag">¿Sabías que?</span>En la Unión Europea la trazabilidad de los alimentos es obligatoria desde el 1 de enero de 2005 (Reglamento CE 178/2002, artículo 18). Todo exportador de alimentos a Europa debe poder demostrarla.</div>
+  <span class="folio">18</span>
+</section>
+<section class="pg" style="--c:#a8326e">
+  <i class="tab" style="--n:6"></i>
+  <div class="run">Trazabilidad de un producto</div>
+  <h3 class="lab"><svg class="ic"><use href="#i-tip"/></svg>Tipos</h3>
+  <ul>
+    <li><b>Hacia atrás:</b> de qué proveedores e insumos viene el producto.</li>
+    <li><b>Interna o de proceso:</b> qué le pasó dentro de la empresa (lotes, mezclas, fechas).</li>
+    <li><b>Hacia adelante:</b> a qué clientes y destinos se envió.</li>
+    <li><b>Herramientas:</b> número de lote, códigos de barras GS1, códigos QR, RFID y registros digitales.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-fun"/></svg>Funciones</h3>
+  <ul>
+    <li>Retirar rápido del mercado un lote con problemas.</li>
+    <li>Encontrar la causa de una falla de calidad o inocuidad.</li>
+    <li>Cumplir los requisitos de exportación y dar confianza al consumidor.</li>
+    <li>Mejorar la logística y el control de inventarios.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-cer"/></svg>Qué certifica</h3>
+  <p>Funciona como la <b>“hoja de vida” del producto</b>: demuestra el origen (finca o predio), el lote, las fechas de cosecha y proceso, los insumos aplicados y la ruta hasta el cliente.</p>
+  <div class="ente"><span class="tag">Ente certificador · Colombia</span>
+    <ul><li><b>ICA:</b> registra predios, exportadores y plantas empacadoras de vegetales en fresco para exportación (Resolución 824 de 2022) y administra el SINIGAN para ganado bovino (Ley 914 de 2004).</li>
+    <li><b>INVIMA:</b> vigila la trazabilidad en plantas de alimentos y de carne (Decreto 1500 de 2007).</li>
+    <li><b>GS1 Colombia:</b> asigna los códigos de barras estándar.</li></ul>
+  </div>
+  <span class="folio">19</span>
+</section>
+
+<!-- ============ CAP 8 ESTACIONALIDAD ============ -->
+<section class="pg" style="--c:#d2691e">
+  <i class="tab" style="--n:7"></i>
+  <div class="run">Capítulo 08</div>
+  <div class="kicker">Capítulo 08 · Tiempo</div>
+  <h2 class="ttl sm">Estacionalidad de un producto</h2>
+  <div class="illu"><svg viewBox="0 0 240 140" aria-label="Rueda de meses del año con sol y lluvia">
+    <circle cx="120" cy="70" r="50" fill="none" stroke="var(--c)" stroke-width="1.5" stroke-dasharray="3 4"/>
+    <g style="font:700 9px var(--f-mono)" text-anchor="middle">
+      <circle cx="120" cy="20" r="10" class="w" stroke="var(--c)" stroke-width="1.5"/><text x="120" y="23.5" class="t">E</text>
+      <circle cx="145" cy="26.7" r="10" class="k"/><text x="145" y="30.2" fill="#fff">F</text>
+      <circle cx="163.3" cy="45" r="10" class="w" stroke="var(--c)" stroke-width="1.5"/><text x="163.3" y="48.5" class="t">M</text>
+      <circle cx="170" cy="70" r="10" class="w" stroke="var(--c)" stroke-width="1.5"/><text x="170" y="73.5" class="t">A</text>
+      <circle cx="163.3" cy="95" r="10" class="k"/><text x="163.3" y="98.5" fill="#fff">M</text>
+      <circle cx="145" cy="113.3" r="10" class="w" stroke="var(--c)" stroke-width="1.5"/><text x="145" y="116.8" class="t">J</text>
+      <circle cx="120" cy="120" r="10" class="w" stroke="var(--c)" stroke-width="1.5"/><text x="120" y="123.5" class="t">J</text>
+      <circle cx="95" cy="113.3" r="10" class="w" stroke="var(--c)" stroke-width="1.5"/><text x="95" y="116.8" class="t">A</text>
+      <circle cx="76.7" cy="95" r="10" class="w" stroke="var(--c)" stroke-width="1.5"/><text x="76.7" y="98.5" class="t">S</text>
+      <circle cx="70" cy="70" r="10" class="w" stroke="var(--c)" stroke-width="1.5"/><text x="70" y="73.5" class="t">O</text>
+      <circle cx="76.7" cy="45" r="10" class="w" stroke="var(--c)" stroke-width="1.5"/><text x="76.7" y="48.5" class="t">N</text>
+      <circle cx="95" cy="26.7" r="10" class="w" stroke="var(--c)" stroke-width="1.5"/><text x="95" y="30.2" class="t">D</text>
+    </g>
+    <circle cx="110" cy="62" r="11" class="g"/><path d="M110 44v6M110 74v6M92 62h6M122 62h6M97 49l4 4M119 71l4 4M97 75l4-4M119 53l4-4" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"/>
+    <path d="M118 84a8 8 0 0 1 8-10 10 10 0 0 1 18 2 6 6 0 0 1 0 12h-22a5 5 0 0 1-4-4z" class="w" stroke="var(--ink)" stroke-width="1.5"/>
+    <path d="M124 92l-2 6M132 92l-2 6M140 92l-2 6" stroke="#1f5fb0" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="206" cy="30" r="5" class="k"/><text x="214" y="33" class="t" style="font-size:8px">pico flores</text>
+  </svg></div>
+  <h3 class="lab"><svg class="ic"><use href="#i-con"/></svg>Concepto</h3>
+  <p>La <b>estacionalidad</b> es la variación que tienen la producción, la demanda o el precio de un producto en ciertas épocas del año y que <b>se repite año tras año</b>. La causan el clima (lluvias, sequías, estaciones), los ciclos de cosecha y las fechas de consumo como Navidad o San Valentín.</p>
+  <div class="box sabias" style="margin-top:8px"><span class="tag">¿Sabías que?</span>Las flores colombianas tienen sus grandes picos de exportación antes de <b>San Valentín</b> (febrero) y del <b>Día de la Madre</b> (mayo), marcados en la rueda.</div>
+  <span class="folio">20</span>
+</section>
+<section class="pg" style="--c:#d2691e">
+  <i class="tab" style="--n:7"></i>
+  <div class="run">Estacionalidad de un producto</div>
+  <h3 class="lab"><svg class="ic"><use href="#i-tip"/></svg>Tipos</h3>
+  <ul>
+    <li><b>De oferta:</b> depende de las cosechas. Ej.: el café colombiano tiene una cosecha principal y una <b>mitaca</b> (traviesa) más pequeña; según la región, la principal cae en el primer o en el segundo semestre (Cenicafé).</li>
+    <li><b>De demanda:</b> depende de fechas y costumbres (flores en San Valentín, frutas y licores en diciembre).</li>
+    <li><b>De precios:</b> los precios suelen bajar en cosecha y subir en escasez.</li>
+    <li><b>Contraestación:</b> vender cuando el país comprador o sus competidores no tienen cosecha.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-fun"/></svg>Funciones (para qué sirve conocerla)</h3>
+  <ul>
+    <li>Planear siembras, producción e inventarios.</li>
+    <li>Elegir la <b>ventana comercial</b>: el mejor momento para entrar a un mercado.</li>
+    <li>Negociar precios y contratos, y reservar transporte refrigerado a tiempo.</li>
+  </ul>
+  <h3 class="lab"><svg class="ic"><use href="#i-cer"/></svg>Qué certifica</h3>
+  <p>La estacionalidad <b>no se certifica</b>: es un comportamiento del mercado. Se demuestra con calendarios de cosecha, series de precios y estadísticas de comercio del país destino.</p>
+  <div class="ente"><span class="tag">Fuentes oficiales · Colombia</span>
+    <ul><li>No existe un ente certificador. La información oficial la publican:</li>
+    <li><b>Ministerio de Agricultura:</b> Agronet y UPRA (producción y cosechas).</li>
+    <li><b>DANE – SIPSA:</b> precios mayoristas de alimentos.</li>
+    <li><b>ProColombia:</b> oportunidades por mercado.</li>
+    <li><b>Gremios:</b> Federación Nacional de Cafeteros y Cenicafé, Asocolflores.</li></ul>
+  </div>
+  <span class="folio">21</span>
+</section>
+
+<!-- 24 GLOSARIO A -->
+<section class="pg">
+  <div class="run">Glosario</div>
+  <div class="kicker">Diccionario de viaje</div>
+  <h2 class="ttl sm">Glosario</h2>
+  <dl class="glo">
+    <div><dt>Acuerdo MSF:</dt><dd>acuerdo de la OMC sobre medidas sanitarias y fitosanitarias, vigente desde 1995.</dd></div>
+    <div><dt>Admisibilidad:</dt><dd>permiso sanitario que da un país para que entre un producto agropecuario.</dd></div>
+    <div><dt>Agencia de aduanas:</dt><dd>empresa autorizada por la DIAN para hacer trámites aduaneros por cuenta de otros.</dd></div>
+    <div><dt>Arancel:</dt><dd>impuesto que se paga al importar (o exportar) una mercancía.</dd></div>
+    <div><dt>BPA:</dt><dd>Buenas Prácticas Agrícolas; normas para producir en finca de forma segura.</dd></div>
+    <div><dt>BPM:</dt><dd>Buenas Prácticas de Manufactura; normas de higiene en plantas de alimentos.</dd></div>
+    <div><dt>Certificado de origen:</dt><dd>documento que prueba en qué país se produjo una mercancía.</dd></div>
+    <div><dt>Certificado fitosanitario:</dt><dd>documento oficial que acredita que un envío vegetal cumple los requisitos de plagas del destino.</dd></div>
+    <div><dt>Codex Alimentarius:</dt><dd>normas internacionales de alimentos creadas por la FAO y la OMS.</dd></div>
+    <div><dt>DEX:</dt><dd>Declaración de Exportación ante la DIAN.</dd></div>
+    <div><dt>HACCP:</dt><dd>sistema de Análisis de Peligros y Puntos Críticos de Control.</dd></div>
+    <div><dt>ICA:</dt><dd>Instituto Colombiano Agropecuario; autoridad de sanidad animal y vegetal.</dd></div>
+    <div><dt>Inocuidad:</dt><dd>garantía de que un alimento no hará daño al consumidor.</dd></div>
+    <div><dt>INVIMA:</dt><dd>Instituto Nacional de Vigilancia de Medicamentos y Alimentos.</dd></div>
+    <div><dt>Levante:</dt><dd>autorización aduanera para disponer de la mercancía.</dd></div>
+    <div><dt>LMR:</dt><dd>Límite Máximo de Residuos de plaguicida permitido en un alimento.</dd></div>
+  </dl>
+  <span class="folio">22</span>
+</section>
+
+<!-- 25 GLOSARIO B -->
+<section class="pg">
+  <div class="run">Glosario</div>
+  <dl class="glo" style="margin-top:6px">
+    <div><dt>Mitaca:</dt><dd>cosecha secundaria (más pequeña) del café en Colombia.</dd></div>
+    <div><dt>MSF:</dt><dd>medidas sanitarias y fitosanitarias.</dd></div>
+    <div><dt>NANDINA:</dt><dd>nomenclatura arancelaria común de la Comunidad Andina (8 dígitos).</dd></div>
+    <div><dt>OEA:</dt><dd>Operador Económico Autorizado; empresa reconocida como segura y confiable.</dd></div>
+    <div><dt>OMA:</dt><dd>Organización Mundial de Aduanas; administra el Sistema Armonizado.</dd></div>
+    <div><dt>OMC:</dt><dd>Organización Mundial del Comercio.</dd></div>
+    <div><dt>OMSA:</dt><dd>Organización Mundial de Sanidad Animal (antes OIE).</dd></div>
+    <div><dt>ONAC:</dt><dd>Organismo Nacional de Acreditación de Colombia.</dd></div>
+    <div><dt>Partida arancelaria:</dt><dd>código que identifica un producto en el arancel.</dd></div>
+    <div><dt>Periodo de carencia:</dt><dd>días que deben pasar entre la aplicación de un plaguicida y la cosecha.</dd></div>
+    <div><dt>POLFA:</dt><dd>Policía Fiscal y Aduanera.</dd></div>
+    <div><dt>PQUA:</dt><dd>plaguicida químico de uso agrícola.</dd></div>
+    <div><dt>RUT:</dt><dd>Registro Único Tributario.</dd></div>
+    <div><dt>Sistema Armonizado (SA):</dt><dd>nomenclatura internacional de 6 dígitos para clasificar mercancías.</dd></div>
+    <div><dt>Ventana comercial:</dt><dd>periodo en que un mercado tiene poca oferta y se vende mejor.</dd></div>
+    <div><dt>VUCE:</dt><dd>Ventanilla Única de Comercio Exterior.</dd></div>
+    <div><dt>Zona franca:</dt><dd>área con tratamiento aduanero y tributario especial.</dd></div>
+  </dl>
+  <span class="folio">23</span>
+</section>
+
+<!-- 26 FUENTES -->
+<section class="pg">
+  <div class="run">Fuentes consultadas</div>
+  <div class="kicker">Referencias · consultadas en noviembre de 2026</div>
+  <h2 class="ttl sm">Fuentes</h2>
+  <ol class="refs">
+    <li>Presidencia de la República. (1992). <i>Decreto 2117 de 1992</i>. Función Pública. <a href="https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=69793" target="_blank" rel="noopener">funcionpublica.gov.co</a></li>
+    <li>Presidencia de la República. (2011). <i>Decreto 3568 de 2011 (Operador Económico Autorizado)</i> y <i>Decreto 4176 de 2011</i>. Normograma DIAN. <a href="https://normograma.dian.gov.co" target="_blank" rel="noopener">normograma.dian.gov.co</a></li>
+    <li>Presidencia de la República. (2019). <i>Decreto 1165 de 2019, régimen de aduanas</i>. Normograma DIAN.</li>
+    <li>Presidencia de la República. (2021). <i>Decreto 1881 de 2021, Arancel de Aduanas</i>. DIAN. <a href="https://www.dian.gov.co" target="_blank" rel="noopener">dian.gov.co</a></li>
+    <li>Organización Mundial del Comercio. (1995). <i>Acuerdo sobre la Aplicación de Medidas Sanitarias y Fitosanitarias</i>. <a href="https://www.wto.org" target="_blank" rel="noopener">wto.org</a></li>
+    <li>Organización Mundial de Aduanas. <i>Sistema Armonizado</i>. <a href="https://www.wcoomd.org" target="_blank" rel="noopener">wcoomd.org</a></li>
+    <li>DNP. (2005). <i>CONPES 3375</i>; Presidencia. (2006). <i>Decreto 2833 de 2006 (Comisión MSF)</i>. Compilación MSF del ICA.</li>
+    <li>Comunidad Andina. (2015). <i>Decisión 804</i>; ICA. (2022). <i>Resolución 1580</i>; Instituto Nacional de Salud: dictamen técnico toxicológico. <a href="https://www.ins.gov.co" target="_blank" rel="noopener">ins.gov.co</a></li>
+    <li>Ministerio de Salud. (1991). <i>Decreto 1843 de 1991</i>; (2013). <i>Resolución 2674 de 2013</i>; (2002). <i>Decreto 60 de 2002</i>. Normograma INVIMA.</li>
+    <li>Ministerio de Agricultura. (2006). <i>Resolución 187 de 2006</i>. Compilación MSF del ICA.</li>
+    <li>ICA. (2017). <i>Resolución 30021</i> (BPA); (2022). <i>Resolución 824</i> (registro de predios para exportación). <a href="https://www.ica.gov.co" target="_blank" rel="noopener">ica.gov.co</a></li>
+    <li>Congreso de la República. (2004). <i>Ley 914 de 2004 (SINIGAN)</i>.</li>
+    <li>Parlamento Europeo y Consejo. (2002). <i>Reglamento (CE) 178/2002</i>, art. 18. AESAN.</li>
+    <li>Cenicafé. <i>Cartilla 19: Recolección de café</i>. <a href="https://cenicafe.org" target="_blank" rel="noopener">cenicafe.org</a></li>
+    <li>Analdex. (2026). <i>Exportaciones de aguacate Hass 2025</i>. <a href="https://analdex.org" target="_blank" rel="noopener">analdex.org</a></li>
+  </ol>
+  <span class="folio">24</span>
+</section>
+
+<!-- 25 GUARDA -->
+<section class="pg guard"><div class="pat"></div><div class="gmark">PASAPORTE AL MUNDO</div></section>
+
+<!-- 26 CONTRAPORTADA -->
+<section class="pg cover backc">
+  <div class="frame"></div>
+  <svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
+    <circle cx="60" cy="60" r="52" fill="none" stroke="#e3ad1f" stroke-width="3"/>
+    <circle cx="60" cy="60" r="43" fill="none" stroke="#e3ad1f" stroke-width="1.2" stroke-dasharray="3 4"/>
+    <text x="60" y="55" text-anchor="middle" style="font:900 22px var(--f-display);fill:#e3ad1f;letter-spacing:.06em">APROBADO</text>
+    <text x="60" y="74" text-anchor="middle" style="font:600 9px var(--f-mono);fill:#e3ad1f;letter-spacing:.14em">8 / 8 SELLOS</text>
+  </svg>
+  <h1 style="font-size:46px">Pasaporte<br>al mundo</h1>
+  <p>Una cartilla para entender quién controla, cobra y certifica lo que Colombia vende y compra al mundo: DIAN, aduanas, aranceles, normas sanitarias y fitosanitarias, productos fitosanitarios, orgánicos e inocuidad, trazabilidad y estacionalidad.</p>
+  <div class="meta">Negocios Internacionales · 2026</div>
+</section>
+
+</div>
+
+<script>
+(function(){
+  var W=460,H=650;
+  var src=[].slice.call(document.querySelectorAll('#src > .pg'));
+  var N=src.length;
+  var book=document.getElementById('book'),scaler=document.getElementById('scaler'),fit=document.getElementById('fit');
+  var prevB=document.getElementById('prev'),nextB=document.getElementById('next'),ind=document.getElementById('ind'),gotoS=document.getElementById('goto');
+  var mode=null,cur=0,leaves=[],nL=0,zTop=100;
+
+  function store(k,v){try{if(v===undefined)return localStorage.getItem('pam-'+k);localStorage.setItem('pam-'+k,v)}catch(e){return null}}
+
+  function pageIndex(){return mode==='double'?Math.max(0,2*cur-1):cur}
+  function makeFace(cls,idx){
+    var f=document.createElement('div');f.className='face '+cls;
+    if(idx<N){var c=src[idx].cloneNode(true);c.classList.add(mode==='double'&&idx%2===1?'L':'R');
+      c.querySelectorAll('[data-key]').forEach(function(el){var v=store(el.dataset.key);if(v!==null)el.textContent=v;});
+      f.appendChild(c);}
+    return f;
+  }
+  function build(keepPage){
+    var newMode=window.innerWidth<720?'single':'double';
+    if(newMode===mode&&leaves.length){scale();return;}
+    mode=newMode;book.innerHTML='';leaves=[];
+    book.className='book no-anim '+mode;
+    nL=mode==='double'?Math.ceil(N/2):N;
+    for(var k=0;k<nL;k++){
+      var lf=document.createElement('div');lf.className='leaf';
+      lf.style.width=W+'px';lf.style.height=H+'px';lf.style.left=(mode==='double'?W:0)+'px';
+      if(mode==='double'){lf.appendChild(makeFace('front',2*k));lf.appendChild(makeFace('back',2*k+1));}
+      else{lf.appendChild(makeFace('front',k));lf.appendChild(makeFace('back',N));}
+      book.appendChild(lf);leaves.push(lf);
+    }
+    book.style.width=(mode==='double'?2*W:W)+'px';book.style.height=H+'px';
+    var p=keepPage||0;cur=mode==='double'?Math.ceil(p/2):p;
+    render();scale();fitText();
+    void book.offsetWidth;book.classList.remove('no-anim');
+  }
+  function fitText(){
+    book.querySelectorAll('.pg:not(.cover):not(.guard)').forEach(function(pg){
+      var fs=11.5,svg=pg.querySelector('.illu svg');
+      pg.style.fontSize='';pg.style.justifyContent='';if(svg)svg.style.height='';
+      pg.querySelectorAll('h3.lab').forEach(function(h){h.style.fontSize=''});
+      while(pg.scrollHeight>pg.clientHeight+1&&fs>9.4){fs-=.25;pg.style.fontSize=fs+'px';
+        pg.querySelectorAll('h3.lab').forEach(function(h){h.style.fontSize=(fs*1.36)+'px'});}
+      if(!pg.classList.contains('chap'))return;
+      /* Reparte el espacio libre: primero agranda la ilustración, luego separa los bloques por igual */
+      var kids=[].filter.call(pg.children,function(c){return getComputedStyle(c).position!=='absolute'});
+      var last=kids[kids.length-1];if(!last)return;
+      var bottom=pg.clientHeight-parseFloat(getComputedStyle(pg).paddingBottom);
+      var free=bottom-(last.offsetTop+last.offsetHeight);
+      if(svg&&free>6){var add=Math.min(free*.6,110);svg.style.height=(120+add)+'px';free-=add;}
+      if(free>4)pg.style.justifyContent='space-between';
+    });
+  }
+  /* Agrupa cada título de sección con su contenido para repartir bien los espacios */
+  src.forEach(function(pg){
+    if(!pg.querySelector('.tab'))return;pg.classList.add('chap');
+    [].slice.call(pg.querySelectorAll(':scope > h3.lab')).forEach(function(h){
+      var sec=document.createElement('div');sec.className='sec';pg.insertBefore(sec,h);
+      var n=h;while(n){var nx=n.nextElementSibling;sec.appendChild(n);n=nx;
+        if(!n||n.matches('h3.lab,.box,.ente,.illu,.folio,.run,.tab'))break;}
+    });
+  });
+  function maxCur(){return mode==='double'?nL:N-1}
+  function render(){
+    leaves.forEach(function(lf,k){
+      var f=k<cur;lf.classList.toggle('flipped',f);
+      lf.style.transform=f?'rotateY(-180deg)':'rotateY(0deg)';
+      if(!lf.dataset.moving)lf.style.zIndex=f?(k+1):(nL-k+1);
+    });
+    var off=0;
+    if(mode==='double'){if(cur===0)off=-W/2;else if(cur===nL)off=W/2;}
+    book.style.transform='translateX('+off+'px)';
+    prevB.disabled=cur===0;nextB.disabled=cur>=maxCur();
+    var t;
+    if(mode==='double'){t=cur===0?'Portada':cur===nL?'Contraportada':'Páginas '+(2*cur)+'–'+(2*cur+1)+' de '+N;}
+    else{t=cur===0?'Portada':cur===N-1?'Contraportada':'Página '+(cur+1)+' de '+N;}
+    ind.textContent=t;
+  }
+  function flip(dir,vol){
+    var t=cur+dir;if(t<0||t>maxCur())return false;
+    var lf=dir>0?leaves[cur]:leaves[cur-1];
+    lf.dataset.moving='1';lf.style.zIndex=++zTop;lf.classList.add('moving');
+    cur=t;render();flipSound(vol||1);
+    clearTimeout(lf._t);lf._t=setTimeout(function(){delete lf.dataset.moving;lf.classList.remove('moving');render();},950);
+    return true;
+  }
+  var goTimer=null;
+  function goTo(p){
+    var target=mode==='double'?Math.ceil(p/2):p;
+    target=Math.max(0,Math.min(maxCur(),target));
+    clearInterval(goTimer);
+    if(target===cur)return;
+    var dir=target>cur?1:-1;
+    flip(dir,1);
+    goTimer=setInterval(function(){if(cur===target){clearInterval(goTimer);return;}flip(dir,.55);},170);
+  }
+  function scale(){
+    var bw=mode==='double'?2*W:W;
+    var bar=document.getElementById('bar').offsetHeight;
+    var availW=document.getElementById('stage').clientWidth-8;
+    var availH=window.innerHeight-bar-28;
+    var s=Math.max(.3,Math.min(availW/bw,availH/H,1.35));
+    scaler.style.transform='scale('+s+')';
+    fit.style.width=(bw*s)+'px';fit.style.height=(H*s)+'px';
+  }
+
+  /* Sonido de hoja (sintetizado con Web Audio) */
+  var actx=null,muted=store('muted')==='1';
+  function flipSound(vol){
+    if(muted)return;
+    try{
+      actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+      if(actx.state==='suspended')actx.resume();
+      var t=actx.currentTime,dur=.6,sr=actx.sampleRate,len=Math.floor(sr*dur);
+      var buf=actx.createBuffer(1,len,sr),d=buf.getChannelData(0);
+      for(var i=0;i<len;i++){var crackle=Math.random()<.03?1:.38;d[i]=(Math.random()*2-1)*crackle;}
+      var src=actx.createBufferSource();src.buffer=buf;
+      var bp=actx.createBiquadFilter();bp.type='bandpass';bp.Q.value=.7;
+      var f0=2600+Math.random()*900;
+      bp.frequency.setValueAtTime(f0,t);bp.frequency.exponentialRampToValueAtTime(700,t+dur);
+      var hp=actx.createBiquadFilter();hp.type='highpass';hp.frequency.value=250;
+      var g=actx.createGain(),v=.5*vol;
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.linearRampToValueAtTime(v*.55,t+.05);
+      g.gain.linearRampToValueAtTime(v*.3,t+.22);
+      g.gain.linearRampToValueAtTime(v,t+.34);
+      g.gain.exponentialRampToValueAtTime(.0005,t+dur);
+      src.connect(bp);bp.connect(hp);hp.connect(g);g.connect(actx.destination);
+      src.start(t);src.stop(t+dur);
+    }catch(e){}
+  }
+  var sndB=document.getElementById('snd');
+  function syncSnd(){sndB.setAttribute('aria-pressed',String(!muted));document.getElementById('sndOn').hidden=muted;document.getElementById('sndOff').hidden=!muted;document.getElementById('sndTxt').textContent=muted?'Sin sonido':'Sonido';}
+  sndB.addEventListener('click',function(){muted=!muted;store('muted',muted?'1':'0');syncSnd();if(!muted)flipSound(.6);});
+  syncSnd();
+
+  /* Interacción */
+  var sx=null,sy=null;
+  function interactive(el){return el.closest('a,[contenteditable],button,select,input,[data-go]');}
+  book.addEventListener('pointerdown',function(e){if(interactive(e.target)){sx=null;return;}sx=e.clientX;sy=e.clientY;});
+  book.addEventListener('pointerup',function(e){
+    if(sx===null)return;var dx=e.clientX-sx,dy=e.clientY-sy;sx=null;
+    if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)){flip(dx<0?1:-1);return;}
+    var r=book.getBoundingClientRect(),x=(e.clientX-r.left)/r.width;
+    if(mode==='double'){if(cur===0)flip(1);else if(cur===nL)flip(-1);else flip(x>=.5?1:-1);}
+    else flip(x>.33?1:-1);
+  });
+  book.addEventListener('click',function(e){
+    var g=e.target.closest('[data-go]');if(g){e.preventDefault();goTo(+g.dataset.go-1);}
+  });
+  book.addEventListener('input',function(e){var el=e.target.closest('[data-key]');if(!el)return;store(el.dataset.key,el.textContent);
+    var k=el.dataset.key;book.querySelectorAll('[data-key="'+k+'"]').forEach(function(o){if(o!==el)o.textContent=el.textContent;});});
+  book.addEventListener('keydown',function(e){var el=e.target.closest('[data-key]');if(el&&e.key==='Enter'){e.preventDefault();el.blur();}});
+  prevB.addEventListener('click',function(){flip(-1)});
+  nextB.addEventListener('click',function(){flip(1)});
+  gotoS.addEventListener('change',function(){if(gotoS.value){goTo(+gotoS.value-1);}gotoS.value='';});
+  document.addEventListener('keydown',function(e){
+    if(e.target.isContentEditable||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
+    if(e.key==='ArrowRight'||e.key==='PageDown'){e.preventDefault();flip(1);}
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();flip(-1);}
+    else if(e.key==='Home'){goTo(0);}else if(e.key==='End'){goTo(N-1);}
+  });
+  var rt;window.addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(function(){build(pageIndex());},120);});
+  build(0);
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){scale();fitText();});
+})();
+</script>
+
+</html>
